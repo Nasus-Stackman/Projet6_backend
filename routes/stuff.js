@@ -7,11 +7,13 @@ const multer = require('../middleware/multer-config');
 
 router.get('/', stuffCtrl.getAllBooks);
 
-router.get('/:id', stuffCtrl.getOneBook);
+router.get('/bestrating', stuffCtrl.getThreeBooks);
 
-router.get('/bestrating', stuffCtrl.getThreeBooks)
+router.get('/:id', stuffCtrl.getOneBook);   // L'ORDRE DES ROUTES EST IMPORTANT, id en dernier
 
 router.post('/', auth, multer, stuffCtrl.createBook);
+
+router.post ('/:id/rating', auth, stuffCtrl.evaluateBook);
 
 router.put('/:id', auth, multer, stuffCtrl.modifyBook);
 

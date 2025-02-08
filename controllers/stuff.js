@@ -1,5 +1,7 @@
+const { error } = require('console');
 const Books = require('../models/books');
 const fs = require('fs');
+const authMiddleware = require('../middleware/auth'); // pour avoir l'id utilisateur
 
 exports.createBook = (req, res, next) => {
     console.log(req.file)
@@ -62,7 +64,7 @@ exports.deleteBook = (req, res, next) => {
 exports.getOneBook = (req, res, next) => {
     Books.findOne({ _id: req.params.id })
         .then(book => res.status(200).json(book))
-        .catch(error => res.status(404).json({ error }));
+        .catch(error => res.status(406).json({ error }));
 }
 
 exports.getAllBooks = (req, res, next) => {
@@ -72,10 +74,23 @@ exports.getAllBooks = (req, res, next) => {
 }
 
 exports.getThreeBooks = (req, res, next) => {
-    const BooksSort = Books.sort((a, b) => b.averageRating - a.averageRating)
-    console.log(BooksSort)
-    const BooksThree = BooksSort.slice(0, 2)
-    console.log(BooksThree)
+    Books.find()
+        .sort({ averageRating: -1 })    // trie décroissant, on ne prend que ce qui nousn intéresse
+        .limit(3)
         .then(book => res.status(200).json(book))
-        .catch(error => res.status(408).json({ error }))
+        .catch(error => res.status(400).json({ error }))
+}
+
+exports.evaluateBook = (req, res, next) => {
+    const IDuser = req.auth.userId;
+    console.log(IDuser)
+    Books.findOne({ _id: req.params.id }, 'ratings')  // on peut mettre plusieurs champs, ex =ratings et autre chose
+        .then(book => {
+            if (IDuser === req.params.id) {
+                console.log('déja noté')
+            }
+            Books.updateOne({ _id: req.params.id }, { $push :{ratings: { userId: trt, grade: tutu }}})
+        })
+        .catch (error => res.status(400).json({ error }))
+
 }
