@@ -2,6 +2,7 @@ const { error } = require('console');
 const Books = require('../models/books');
 const fs = require('fs');
 const authMiddleware = require('../middleware/auth'); // pour avoir l'id utilisateur
+const { console } = require('inspector');
 
 exports.createBook = (req, res, next) => {
     console.log(req.file)
@@ -83,14 +84,31 @@ exports.getThreeBooks = (req, res, next) => {
 
 exports.evaluateBook = (req, res, next) => {
     const IDuser = req.auth.userId;
+    const note = req.body.rating
+    const bookId = req.params.id
+    if (!bookId) {
+        return res.status(400).json({ error: 'ID du livre manquant' });
+    }
+
+    console.log('ID du livre:', bookId);
     console.log(IDuser)
-    Books.findOne({ _id: req.params.id }, 'ratings')  // on peut mettre plusieurs champs, ex =ratings et autre chose
+    Books.findOne({ _id: bookId }, 'ratings')  // on peut mettre plusieurs champs, ex =ratings et autre chose
         .then(book => {
-            if (IDuser === req.params.id) {
-                console.log('déja noté')
+            const UserGrade = book.ratings.find(elem => elem.userId === IDuser)
+            if (UserGrade) {
+                return res.status(400).json({ error: 'Vous avez déjà noté ce livre' });
             }
-            Books.updateOne({ _id: req.params.id }, { $push :{ratings: { userId: trt, grade: tutu }}})
+            if (note === undefined) {
+                console.log('il faut saisir une note')
+            }
+            Books.updateOne({ _id: bookId}, { $push: { ratings: { userId: IDuser, grade: note } } })
+            .then(() => {
+                return res.status(200).json({ message: 'Note ajoutée avec succès', id: bookId  });
+            })
+            .catch(error => {
+                return res.status(500).json({ error: 'Erreur lors de l\'ajout de la note' });
+            })
         })
-        .catch (error => res.status(400).json({ error }))
+        .catch(error => res.status(400).json({ error }))
 
 }
