@@ -8,6 +8,7 @@ exports.createBook = (req, res, next) => {
     console.log(req.file)
     const bookObject = JSON.parse(req.body.book); // converti du json en js
     console.log(bookObject)
+    console.log('ayo')
     delete bookObject._id;
     delete bookObject._userId;
     const book = new Books({
@@ -86,29 +87,36 @@ exports.evaluateBook = (req, res, next) => {
     const IDuser = req.auth.userId;
     const note = req.body.rating
     const bookId = req.params.id
+    console.log('ID du livre:', bookId);
+    console.log(IDuser)
     if (!bookId) {
         return res.status(400).json({ error: 'ID du livre manquant' });
     }
-
-    console.log('ID du livre:', bookId);
-    console.log(IDuser)
     Books.findOne({ _id: bookId }, 'ratings')  // on peut mettre plusieurs champs, ex =ratings et autre chose
         .then(book => {
-            const UserGrade = book.ratings.find(elem => elem.userId === IDuser)
+            const UserGrade = book.ratings.find(elem => elem.userId === IDuser)  //voir si l'utilisateur a déja noté
             if (UserGrade) {
                 return res.status(400).json({ error: 'Vous avez déjà noté ce livre' });
             }
             if (note === undefined) {
                 console.log('il faut saisir une note')
             }
-            Books.updateOne({ _id: bookId}, { $push: { ratings: { userId: IDuser, grade: note } } })
-            .then(() => {
-                return res.status(200).json({ message: 'Note ajoutée avec succès', id: bookId  });
-            })
-            .catch(error => {
-                return res.status(500).json({ error: 'Erreur lors de l\'ajout de la note' });
-            })
+            Books.updateOne({ _id: bookId }, { $push: { ratings: { userId: IDuser, grade: note } } })
+                .then(() => {
+                    const newRatings = [...book.ratings, { userId: IDuser, grade: note }]; // On inclut la nouvelle note
+                    const totalGrades = newRatings.reduce((sum, rating) => sum + rating.grade, 0);
+                    const averageGrade = totalGrades / newRatings.length;
+                    return Books.updateOne({ _id: bookId }, { $set: { averageRating: averageGrade } });
+                })
+                .then(() => {
+                    return Books.findOne({ _id: req.params.id })
+                })
+                .then(updatedBook => {
+                    return res.status(200).json(updatedBook);
+                })
+                .catch(error => {
+                    return res.status(500).json({ error: 'Erreur lors de l\'ajout de la note' });
+                })
         })
         .catch(error => res.status(400).json({ error }))
-
 }
