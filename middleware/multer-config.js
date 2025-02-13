@@ -9,12 +9,6 @@ const MIME_TYPES = {
   'image/png': 'png'
 };
 
-// Vérification et création du dossier processed si nécessaire
-const processedDir = path.join('images', 'processed');
-if (!fs.existsSync(processedDir)) {
-  fs.mkdirSync(processedDir, { recursive: true });
-}
-
 // Configuration du stockage avec multer
 const storage = multer.diskStorage({
   destination: (req, file, callback) => {
@@ -44,22 +38,24 @@ const processImage = (req, res, next) => {
   const filePath = req.file.path; // Chemin vers le fichier temporaire
   console.log(`Fichier trouvé : ${filePath}`);
 
-  // Définir un nouveau chemin pour le fichier traité
-  const outputFilePath = path.join(processedDir, 'processed_' + Date.now() + path.extname(filePath));
-  console.log(`Enregistrement dans : ${outputFilePath}`);
-
   // Traitement de l'image avec sharp
   sharp(filePath)
-    .resize(100) //redimensionne
+    .resize(400) //redimensionne
     .toFormat(MIME_TYPES[req.file.mimetype]) // Garde le format original
-    .toFile(outputFilePath, (err, info) => {
-      if (err) {
-        console.error('Erreur de traitement de l\'image:', err);
-        return res.status(500).json({ error: 'Erreur de traitement de l\'image' });
-      }
-      console.log("Traitement réussi:", info);
-      req.file.path = outputFilePath; // Met à jour le chemin du fichier traité
+    .toBuffer() // Utilisation de toBuffer pour obtenir l'image traitée dans la mémoire
+    .then((data) => {
+      // Supprimer le fichier original après traitement
+      fs.unlinkSync(filePath); // Supprime l'image originale dans 'images'
+
+      // Enregistrer l'image traitée dans le même dossier avec le même nom
+      fs.writeFileSync(filePath, data); // Écrit l'image traitée dans 'images'
+
+      console.log("Traitement réussi. Fichier mis à jour dans images.");
       next(); // Passe au prochain middleware
+    })
+    .catch((err) => {
+      console.error('Erreur de traitement de l\'image:', err);
+      return res.status(500).json({ error: 'Erreur de traitement de l\'image' });
     });
 };
 
@@ -77,3 +73,4 @@ const handleImageUpload = (req, res, next) => {
 };
 
 module.exports = handleImageUpload;
+

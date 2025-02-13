@@ -3,12 +3,12 @@ const Books = require('../models/books');
 const fs = require('fs');
 const authMiddleware = require('../middleware/auth'); // pour avoir l'id utilisateur
 const { console } = require('inspector');
+const path = require('path');
 
 exports.createBook = (req, res, next) => {
     console.log(req.file)
     const bookObject = JSON.parse(req.body.book); // converti du json en js
     console.log(bookObject)
-    console.log('ayo')
     delete bookObject._id;
     delete bookObject._userId;
     const book = new Books({
@@ -23,17 +23,37 @@ exports.createBook = (req, res, next) => {
 };
 
 exports.modifyBook = (req, res, next) => {
+    // Si un fichier est envoyé (nouvelle image), on l'ajoute à l'objet
     const bookObject = req.file ? {
         ...JSON.parse(req.body.book),
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
     } : { ...req.body };
 
     delete bookObject._userId;
+
+    // Cherche le livre dans la base de données
     Books.findOne({ _id: req.params.id })
         .then((book) => {
             if (book.userId != req.auth.userId) {
-                res.status(401).json({ message: 'Not authorized' });
+                return res.status(401).json({ message: 'Not authorized' });
             } else {
+                // Si une nouvelle image est envoyée, on supprime l'ancienne image
+                if (req.file) {
+                    if (book.imageUrl) {
+                        const oldImagePath = path.join('images', book.imageUrl.split('/images/')[1]);
+                        fs.unlink(oldImagePath, (err) => {
+                            if (err) {
+                                console.error('Erreur de suppression de l\'ancienne image:', err);
+                            } else {
+                                console.log('Ancienne image supprimée avec succès.');
+                            }
+                        });
+                    }
+                    // Mettre à jour l'URL de l'image avec la nouvelle image
+                    bookObject.imageUrl = `${req.protocol}://${req.get('host')}/images/${req.file.filename}`;
+                }
+
+                // Mettre à jour l'objet book dans la base de données
                 Books.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
                     .then(() => res.status(200).json({ message: 'Objet modifié!' }))
                     .catch(error => res.status(401).json({ error }));
@@ -105,7 +125,8 @@ exports.evaluateBook = (req, res, next) => {
                 .then(() => {
                     const newRatings = [...book.ratings, { userId: IDuser, grade: note }]; // On inclut la nouvelle note
                     const totalGrades = newRatings.reduce((sum, rating) => sum + rating.grade, 0);
-                    const averageGrade = totalGrades / newRatings.length;
+                    let averageGrade = totalGrades / newRatings.length;
+                    averageGrade = parseFloat(averageGrade.toFixed(2));
                     return Books.updateOne({ _id: bookId }, { $set: { averageRating: averageGrade } });
                 })
                 .then(() => {

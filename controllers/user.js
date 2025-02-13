@@ -19,6 +19,7 @@ exports.signup = (req, res, next) => {
 exports.login = (req, res, next) => {
     User.findOne({ email: req.body.email })
         .then(user => {
+            console.log(user);
             if (!user) {
                 return res.status(401).json({ message: 'Paire login/mot de passe incorrecte' });
             }
@@ -38,5 +39,8 @@ exports.login = (req, res, next) => {
                 })
                 .catch(error => res.status(500).json({ error }));
         })
-        .catch(error => res.status(500).json({ error }));
+        .catch(error => {
+            console.error(error);  // Ajouter un log pour inspecter l'erreur
+            res.status(500).json({ error: error.message });
+        });
 };
