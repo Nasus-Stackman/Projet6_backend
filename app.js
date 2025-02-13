@@ -4,14 +4,17 @@ app.use(express.json());
 const mongoose = require('mongoose');
 const stuffRoutes = require('./routes/stuff')
 const userRoutes = require('./routes/user')
+const path = require('path');
+require('dotenv').config();
+console.log('MONGO_URI:', process.env.MONGO_URI);
 
-mongoose.connect('mongodb+srv://Nasus_stackman:test_79_iopk@cluster0.0d2ou.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0',
-    {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    })
+mongoose.connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
     .then(() => console.log('Connexion à MongoDB réussie !'))
-    .catch(() => console.log('Connexion à MongoDB échouée !'));
+    .catch((err) => console.log('Connexion à MongoDB échouée !', err));
+
 
 app.use((req, res, next) => {     //middleware générale
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -22,6 +25,7 @@ app.use((req, res, next) => {     //middleware générale
 
 app.use('/api/books', stuffRoutes);
 app.use('/api/auth', userRoutes);
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 
 module.exports = app
